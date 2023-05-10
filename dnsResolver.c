@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,10 +15,9 @@
 
 
 char buffer_receive[BUF_SIZE];
-char buffer_send[BUF_SIZE];
-int my_send(int socket);
-int my_receive(int socket);
-void convert_to_big_endian(unsigned char* data, size_t size);
+int my_send();
+int my_receive();
+void convert_to_big_endian(char* data, size_t size);
 
 
 struct DNS_Header{
@@ -30,7 +30,6 @@ struct DNS_Header{
 };
 
 struct DNS_Query{
-	unsigned char *name;
 	unsigned short qtype: 16;
 	unsigned short qclass: 16;
 };
@@ -38,117 +37,93 @@ struct DNS_Query{
 
 int main(int argc, char *argv[]){
 
-	printf("Start main...\n");
+	printf("Start While...\n");
+	while(1){
+		my_send();
+		my_receive();
+	}
+
+}
+
+int my_receive(){
 	int socket_udp;
-	int socket_tcp;
 
 	if((socket_udp = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
 		perror("socket() failed");
 		exit(EXIT_FAILURE);
 	}
-	
-	if((socket_tcp = socket(AF_INET, SOCK_STREAM, 0)) == -1){
-		perror("socket() failed");
-		exit(EXIT_FAILURE);
-	}
-
-
-	printf("Start While...\n");
-	my_send(socket_udp);
 
 
 }
 
-int my_receive(int socket){
-
-	struct sockaddr_in recv_addr;
-	memset(&recv_addr, 0, sizeof(recv_addr));//初始化结构体中的数据
-	recv_addr.sin_family = AF_INET; 
-	recv_addr.sin_port = htons(12345); //htons 转换为网络字节序（大端序）
-	recv_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); 
-
-	if (bind(socket, (struct sockaddr*)&recv_addr, sizeof(recv_addr)) == -1) {
-		perror("bind() failed");
-		exit(EXIT_FAILURE);
-	}
-	socklen_t addrlen = sizeof(recv_addr);
-
-	int received_bytes = recvfrom(socket, buffer_receive, BUF_SIZE, 0, (struct sockaddr*)&recv_addr, &addrlen);
-	buffer_receive[received_bytes] = '\0'; // C语言中，字符串是以空字符结尾的字符序列
-
-	printf("received from %s:%d: %s\n", inet_ntoa(recv_addr.sin_addr), ntohs(recv_addr.sin_port), buffer_receive); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
-
-	return 1;
-}
-
-int my_send(int socket){
-
-	printf("Create DNS Header...\n");
-	struct DNS_Header dns_header;
-	memset(&dns_header, 0, sizeof(dns_header));
-	dns_header.id = htons(5555); // 设置标识符
-	dns_header.tag = htons(0x0100); // 设置标志位，表示这是一个标准查询
-	dns_header.queryNum = htons(1); // 问题数为1
-	dns_header.addNum = htons(1);
-	dns_header.answerNum = htons(2);
-	dns_header.authorNum = htons(2);
-	memset(buffer_send, 0, sizeof(buffer_send));
-	memcpy(buffer_send, &dns_header, sizeof(dns_header)); // 拷贝头部
-	int position = sizeof(dns_header);
-
-
-	printf("Create DNS query...\n");
-	struct DNS_Query *dns_query;
-	unsigned char url[] = "bupt.edu.cn";
-	size_t url_len = strlen((char*)url);
-	unsigned char domain_name[url_len+2];
+int my_send(){
+	char url[] = "bupt.edu.cn";
+	int url_len = strlen(url);
+	char domain_name[url_len+2];
 	int e = 0;
-	for (int i = 0; i < url_len; i++) {
+	for (int i = 0; i < url_len+1; i++) {
 	    if (url[i] == '.') {
-		domain_name[i-e] = e;
+		domain_name[i-e] = '\x0'+e;
 		e=0;
 	    } else {
 		domain_name[i+1] = url[i];
 		e++;
 	    }
 	}
-	domain_name[url_len+1-e] = e;
-	domain_name[url_len+2] = '\0';
-	convert_to_big_endian(domain_name, sizeof(domain_name));
+	domain_name[url_len-e+1] = '\x0'+(e-1);
+	domain_name[url_len+1] = '\x00';
+	int name_len = strlen(domain_name)+1;
 
-	//uint16_t num;
-	//memcpy(&num, &url, sizeof(num));
-	//num = htons(num);
-	//memcpy(&url, &num, sizeof(url));
 
-	dns_query->name = (unsigned char*)malloc(sizeof(domain_name));
-	dns_query->qtype = htons(0x0010);
-	uint16_t qtype = dns_query->qtype;
-	dns_query->qclass = htons(0x0010);
-	uint16_t qclass = dns_query->qclass;
-	size_t name_len = strlen((char*)dns_query->name)+1;
+	printf("Start create name...\n");
+	int dns_length = 16+name_len;
+	char buffer_send[dns_length];
+	int socket_udp;
+	socket_udp = socket(AF_INET, SOCK_DGRAM, 0);
+	struct sockaddr_in recv_addr;
+	memset(&recv_addr, 0, sizeof(recv_addr));//初始化结构体中的数据
+	recv_addr.sin_family = AF_INET; 
+	recv_addr.sin_port = htons(12345); //htons 转换为网络字节序（大端序）
+	recv_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); 
+
+	if (bind(socket_udp, (struct sockaddr*)&recv_addr, sizeof(recv_addr)) == -1) {
+		perror("bind() failed\n");
+		exit(EXIT_FAILURE);
+	}
+	socklen_t addrlen = sizeof(recv_addr);
+
+
+	printf("Create DNS Header...\n");
+	struct DNS_Header dns_header;
+	memset(&dns_header, 0, sizeof(dns_header));
+	dns_header.id = htons(0xa82e); // 设置标识符
+	dns_header.tag = htons(0x0100); // 设置标志位，表示这是一个标准查询
+	dns_header.queryNum = htons(1); // 问题数为1
+	dns_header.addNum = htons(0);
+	dns_header.answerNum = htons(0);
+	dns_header.authorNum = htons(0);
+	memset(buffer_send, 0, sizeof(*buffer_send));
+	memcpy(buffer_send, &dns_header, sizeof(dns_header)); // 拷贝头部
+	int position = sizeof(dns_header);
+
+
+	printf("Create DNS query...\n");
+	struct DNS_Query dns_query;
+	//dns_query->name = domain_name;
+	dns_query.qtype = htons(0x0001);
+	dns_query.qclass = htons(0x0001);
 	if (name_len >= MAX_NAME_LEN) {
 		return -1;
 	}
-	size_t query_len = name_len + 2 + 2;
+	size_t query_len = position + name_len + 2 + 2;
 	if (query_len > BUF_SIZE) {
 		return -1;
 	}
 	//memcpy参数：参数1为你要拷贝到的缓冲区地址，参数2为你要拷贝数据的地址，参数3为数据的长度
-	memcpy(&buffer_send[position], &dns_query->name, name_len);
+	printf("Start memcpy...\n");
+	memcpy(&buffer_send[position], &domain_name, name_len);
 	position += name_len;
-	memcpy(&buffer_send[position], &qtype, 2);
-	position += 2;
-	memcpy(&buffer_send[position], &qclass, 2);
-	position += 2;
-	buffer_send[position] = htons(0x00);
-
-
-
-	// 打印生成的 DNS 报文
-	//for(int i = 0; i < position; i++){
-	//    printf("%02x", buffer_send[i]);
-	//}
+	memcpy(&buffer_send[position], &dns_query, sizeof(dns_query)); // 拷贝头部
 
 
 	printf("Create (sockaddr_in)send_addr...\n");
@@ -158,18 +133,35 @@ int my_send(int socket){
 	send_addr.sin_port = htons(53); 
 	send_addr.sin_addr.s_addr = inet_addr("127.1.1.1"); 
 
-	printf("Start Send...\n");
-	sendto(socket, buffer_send, sizeof(buffer_send), 0, (struct sockaddr*)&send_addr, sizeof(send_addr));
+
+	while(1){
+		printf("Start Send...\n");
+		sendto(socket_udp, buffer_send, sizeof(buffer_send), 0, (struct sockaddr*)&send_addr, sizeof(send_addr));
+
+
+		printf("Start receiving...\n");
+		int received_bytes = recvfrom(socket_udp, buffer_receive, BUF_SIZE, 0, (struct sockaddr*)&recv_addr, &addrlen);
+		buffer_receive[received_bytes] = '\0'; // C语言中，字符串是以空字符结尾的字符序列
+
+		printf("received from %s:%d\n", inet_ntoa(recv_addr.sin_addr), ntohs(recv_addr.sin_port)); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
+	
+		struct DNS_Header *dnsheader = (struct DNS_Header *)buffer_receive;
+		printf("%d\n",ntohs(dnsheader->id));
+		char *name_start = buffer_receive+sizeof(*dnsheader);
+		char *name_end;
+		name_end = strchr(&buffer_receive[sizeof(*dnsheader)], '\0');
+		int name_len = name_end - name_start;
+		char name_str[name_len];
+		for (int i=0; i<name_len; i++) {
+			name_str[i] = *(name_start+i);
+		}
+		printf("%s\n", name_str);
+		
+	};
+	
+	close(socket_udp);
 
 	return 1;
 
 }
 
-//当char x[]作为参数传递时，会自动转换char* x类型，作为指针传递
-void convert_to_big_endian(unsigned char* data, size_t size) {
-    for (size_t i = 0; i < size / 2; i++) {
-        unsigned char tmp = data[i];
-        data[i] = data[size - i - 1];
-        data[size - i - 1] = tmp;
-    }
-}
