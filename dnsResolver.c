@@ -51,7 +51,7 @@ int my_receive(){
 	if((socket_udp = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
 		perror("socket() failed");
 		exit(EXIT_FAILURE);
-	}
+	};
 
 
 }
