@@ -16,12 +16,12 @@ struct DNS_Query{
 };
 
 struct DNS_RR {
-	unsigned char *name;
+	//unsigned short _name: 16;
 	unsigned short type: 16;
 	unsigned short _class: 16;
 	unsigned int ttl: 32;
 	unsigned short data_len: 16;
-	unsigned char *rdata;
+	//unsigned int address: 32;
 };
 
 

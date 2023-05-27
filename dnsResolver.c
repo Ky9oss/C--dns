@@ -145,7 +145,7 @@ int my_send_and_receive(char url[MAX_NAME_LEN], int c_qtype){
 	printf("Create DNS Header...\n");
 	struct DNS_Header dns_header;
 	memset(&dns_header, 0, sizeof(dns_header));
-	dns_header.id = htons(0xa82e); // 设置标识符
+	dns_header.id = htons(0x0001); // 设置标识符
 	dns_header.tag = htons(0x0100); // 设置标志位，表示这是一个标准查询
 	dns_header.queryNum = htons(1); // 问题数为1
 	dns_header.addNum = htons(0);
@@ -200,7 +200,7 @@ int my_send_and_receive(char url[MAX_NAME_LEN], int c_qtype){
 	int received_bytes = recvfrom(socket_udp, buffer_receive, BUF_SIZE, 0, (struct sockaddr*)&recv_addr, &addrlen);
 	buffer_receive[received_bytes] = '\0'; // C语言中，字符串是以空字符结尾的字符序列
 
-	printf("[^_^] Received from Local DNS Server: %s\n", buffer_receive); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
+	printf("[^_^] Received from Local DNS Server\n"); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
 
 	return 1;
 
