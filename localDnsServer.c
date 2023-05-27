@@ -89,7 +89,7 @@ int my_receiveUDP(){
 	name_end = strchr(&buffer_receive[12], '\0');
 	int name_len = name_end - name_start+1;
 	printf("Name_len: %x\n", name_len);
-	char* name_str[name_len];
+	char* name_str[name_len+1];
 	for (int i=0; i<name_len; i++) {
 		name_str[i] = name_start+i;
 	}
@@ -265,7 +265,7 @@ int my_receiveUDP(){
 		dns_header.id = htons(0x0001); // 设置标识符
 		dns_header.tag = htons(0x8180); // 设置标志位，表示这是一个标准查询
 		dns_header.queryNum = htons(1); // 问题数为1
-		dns_header.answerNum = htons(2);
+		dns_header.answerNum = htons(1);
 		dns_header.addNum = htons(0);
 		dns_header.authorNum = htons(0);
 		int A_data_length = 12; //-------注意A_data_length，用来计算包的长度
@@ -287,8 +287,10 @@ int my_receiveUDP(){
 		}
 		domain_name[url_len-e+1] = '\x0'+(e-1);
 		domain_name[url_len+1] = '\x00';
-		int name_queries_len = strlen(domain_name)+1;
-		A_data_length += name_queries_len;
+		char *p = &domain_name[1];
+		strcpy(domain_name, p);
+		int name_len = strlen(domain_name)+1;
+		A_data_length += name_len;
 
 		//构造头部--dns query
 		//printf("Create DNS query...\n");
@@ -305,43 +307,49 @@ int my_receiveUDP(){
 		A_data_length += 4;
 
 		//Answers--构造name
-		unsigned short name_answers = 0xc00c;
+		unsigned short name_answers = htons(0xc00c);
 		A_data_length += 2;
 
 		  
 		//Answers--构造address
-		char address_answers[] = "110.12.130.22";
-		char hex_str[32] = "";
-		char* p = strtok(address_answers, ".");
-		while (p != NULL) {
-			int num = atoi(p);
-			sprintf(hex_str + strlen(hex_str), "%02X", num);
-			p = strtok(NULL, ".");
-		}
+		//char address_answers[] = "110.12.130.22";
+		//char hex_str[32] = "";
+		//char* p = strtok(address_answers, ".");
+		//while (p != NULL) {
+	//		int num = atoi(p);
+	//		sprintf(hex_str + strlen(hex_str), "%02X", num);
+	//		p = strtok(NULL, ".");
+	//	}
+		int address_answers = htonl(0xda1e676f);
 		int address_answers_len = 4;
 		A_data_length += address_answers_len;
 
 		//Answers身体
 		struct DNS_RR dns_rr_answers1;
 		memset(&dns_rr_answers1, 0, sizeof(dns_rr_answers1));
-		dns_rr_answers1.type = htons(qtype); // 设置标识符
+		dns_rr_answers1.type = htons(0x0001); // 设置标识符
 		dns_rr_answers1._class = htons(0x0001); // 设置标识符
-		dns_rr_answers1.ttl = htons(0x00000064); // 设置标识符
+		dns_rr_answers1.ttl = htonl(0x0064); // 设置标识符
 		//注意data length，是后面的address数据的length
-		dns_rr_answers1.data_len = htons(address_answers_len); // 设置标识符
+		dns_rr_answers1.data_len = htons(0x0004); // 设置标识符
 
 		A_data_length += 10;
+
+
 		char buffer_send[A_data_length];
 
 
 		//开始将数据存入buffer
 		//memcpy参数：参数1为你要拷贝到的缓冲区地址，参数2为你要拷贝数据的地址，参数3为数据的长度
 		memset(buffer_send, 0, sizeof(*buffer_send));
-		memcpy(buffer_send, &dns_header, sizeof(dns_header)); // 拷贝头部
-		int position = sizeof(dns_header);
+		memcpy(buffer_send, &dns_header, 12); // 拷贝头部
+		int position = 12;
 
-		memcpy(&buffer_send[position], domain_name, name_len);
+		memcpy(&buffer_send[position], &domain_name, name_len);
 		position += name_len;
+
+		memcpy(&buffer_send[position], &dns_query, 4);
+		position += 4;
 
 		memcpy(&buffer_send[position], &name_answers, 2); // 拷贝头部
 		position += 2;
@@ -352,7 +360,7 @@ int my_receiveUDP(){
 		memcpy(&buffer_send[position], &address_answers, address_answers_len); // 拷贝头部
 		position += address_answers_len;
 
-		sendto(socket_udp, buffer_send, strlen(buffer_send), 0, (struct sockaddr*)&send_addr, sizeof(send_addr));
+		sendto(socket_udp, buffer_send, sizeof(buffer_send), 0, (struct sockaddr*)&send_addr, sizeof(send_addr));
 	}
 	if(qtype==0x000c){
 		//PTR
