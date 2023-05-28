@@ -1,0 +1,15 @@
+dnsResolver 127.0.0.1
+
+localDnsServer 127.1.1.1
+
+rootDnsServer 127.2.2.1
+
+com 127.3.3.1
+cn 127.3.3.2
+org 127.3.3.3
+us 127.3.3.4
+
+hkx.com 127.4.4.1
+edu.cn 127.4.4.2
+czn.org 127.4.4.3
+you.us 127.4.4.4

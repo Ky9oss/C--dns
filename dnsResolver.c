@@ -42,7 +42,6 @@ int main(int argc, char *argv[]){
 	if (strcmp(input1, "PTR\n") == 0) {
 		printf("GET PTR!\n");
 		int c_qtype=0x000c;
-		exit(1);
 
 		printf("Input the IP address: \n");
 		char url[MAX_NAME_LEN];
