@@ -1,3 +1,14 @@
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>     
 #define BUF_SIZE 4096
 #define MAX_NAME_LEN 256
 struct DNS_Header{
@@ -19,9 +30,9 @@ struct DNS_RR {
 	//unsigned short _name: 16;
 	unsigned short type: 16;
 	unsigned short _class: 16;
-	unsigned int ttl: 32;
+	uint32_t ttl: 32;
 	unsigned short data_len: 16;
-	//unsigned int address: 32;
+	uint32_t address: 32;
 };
 
 

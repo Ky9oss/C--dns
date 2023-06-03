@@ -19,6 +19,8 @@ char buffer_receive2[BUF_SIZE];
 char buffer_receive3[BUF_SIZE];
 char buffer_tcp_receive[BUF_SIZE];
 int my_receiveUDP();
+struct in_addr addr;
+char ip_str[64];
 
 
 
@@ -84,15 +86,6 @@ int my_receiveUDP(){
 	unsigned short addNum = ntohs(dnsheader->addNum);
 	printf("Additional RRs: %x\n", addNum);
 	
-	char *name_start2 = buffer_receive+12;
-	char *name_end2;
-	name_end2 = strchr(&buffer_receive[12], '\0');
-	int name_len2 = name_end2 - name_start2+1;
-	printf("Name_len: %x\n", name_len2);
-	char* name_str2[name_len2+1];
-	for (int i=0; i<name_len2; i++) {
-		name_str2[i] = name_start2+i;
-	}
 
 	char *name_start = buffer_receive + 12;
 	char *name_end = strchr(&buffer_receive[12], '\0');
@@ -122,12 +115,13 @@ int my_receiveUDP(){
 
 
 	//构造16进制包长
-	unsigned short value = 18+name_len;  // 填充一个整型数字
+	int value = 16+name_len;  // 填充一个整型数字
 
 	
 	//构造name
 	int dns_length = 2+16+name_len;
 	char buffer_send[dns_length];
+	name_len += 1;
 
 
 	//构造头部--dns header
@@ -149,18 +143,18 @@ int my_receiveUDP(){
 	if (name_len >= MAX_NAME_LEN) {
 		return -1;
 	}
-	size_t query_len = 12 + 1+name_len + 2 + 2;
+	size_t query_len = 12 + name_len + 2 + 2;
 	if (query_len > BUF_SIZE) {
 		return -1;
 	}
 
 	//开始将数据存入buffer
 	//memcpy参数：参数1为你要拷贝到的缓冲区地址，参数2为你要拷贝数据的地址，参数3为数据的长度
-	//buffer_send[0] = (unsigned char)(value >> 8);   // 高位字节
-	//buffer_send[1] = (unsigned char)value;          // 低位字节
+	buffer_send[0] = (unsigned char)(value >> 8);   // 高位字节
+	buffer_send[1] = (unsigned char)value;          // 低位字节
 	
 	memset(buffer_send, 0, sizeof(*buffer_send));
-	memcpy(buffer_send, &value, 2); // 拷贝头部
+	//memcpy(buffer_send, &value, 2); // 拷贝头部
 							//
 	memcpy(&buffer_send[2], &dns_header, sizeof(dns_header)); // 拷贝头部
 	int position = 2+sizeof(dns_header);
@@ -194,15 +188,86 @@ int my_receiveUDP(){
 	}
 	printf("Connected to server.\n");
 	printf("Start Send to Root...\n");
-	send(socket_tcp, buffer_send, position, 0);
+	send(socket_tcp, buffer_send, sizeof(buffer_send), 0);
 
 
 	// 读取服务器发送的响应
-	recv(socket_tcp, buffer_receive1, sizeof(buffer_receive1), 0);
-	unsigned short data_length = *((unsigned short*) buffer_receive1);
-	char address_received[data_length];
-	memcpy(address_received, &buffer_receive1[2], data_length);
-	printf("Received %d bytes: %s\n", data_length, address_received);
+	//接收数据！
+	printf("------------------------------\n");
+	printf("Receiving from Root Server...\n");
+	printf("------------------------------\n\n");
+
+	int received_bytes1 = recv(socket_tcp, buffer_receive1, sizeof(buffer_receive1), 0);
+	unsigned short data_length1 = *((unsigned short*) buffer_receive1);
+
+	buffer_receive1[received_bytes1] = '\0'; // C语言中，字符串是以空字符结尾的字符序列
+
+	printf("received from %s:%d\n", inet_ntoa(recv_addr->sin_addr), ntohs(recv_addr->sin_port)); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
+
+	struct DNS_Header *dnsheader1 = (struct DNS_Header *)&buffer_receive1[2];
+	unsigned short id1 = ntohs(dnsheader1->id);
+	printf("Transacation ID: %04x\n", id1);
+	unsigned short tag1 = ntohs(dnsheader1->tag);
+	printf("Flags: %04x\n", tag1);
+	unsigned short queryNum1 = ntohs(dnsheader1->queryNum);
+	printf("Questions: %04x\n", queryNum1);
+	unsigned short answerNum1 = ntohs(dnsheader1->answerNum);
+	printf("Answer RRs: %04x\n", answerNum1);
+	unsigned short authorNum1 = ntohs(dnsheader1->authorNum);
+	printf("Authority RRs: %04x\n", authorNum1);
+	unsigned short addNum1 = ntohs(dnsheader1->addNum);
+	printf("Additional RRs: %04x\n", addNum1);
+	
+
+	char *name_start1 = buffer_receive1 + 14;
+	char *name_end1 = strchr(&buffer_receive1[14], '\0');
+	size_t name_len1 = name_end1 - name_start1+1;
+	printf("Name_len: %zu\n", name_len1);
+	char* name_str1 = malloc(name_len1);
+	if (name_str1 == NULL) {
+	    fprintf(stderr, "Failed to allocate memory for name_str.\n");
+	    exit(EXIT_FAILURE);
+	}
+	memcpy(name_str1, name_start1, name_len1);
+	name_str1[name_len1] = '\0';
+	printf("Name: %s\n", name_str1);
+
+	struct DNS_Query *dnsquery1 = (struct DNS_Query *)(buffer_receive1+14+name_len1);
+	unsigned short qtype1 = ntohs(dnsquery1->qtype);
+	printf("Type: %04x\n", qtype1);
+	unsigned short qclass1 = ntohs(dnsquery1->qclass);
+	printf("Class: %04x\n", qclass1);
+	
+
+	int position1 = 18+name_len1;
+	//假装两字节
+	//position1 += 2;
+
+	struct DNS_RR *dns_rr1 = (struct DNS_RR *)(buffer_receive1+position1);
+	unsigned short type1 = ntohs(dns_rr1->type);
+	unsigned short class1 = ntohs(dns_rr1->_class);
+	uint32_t ttl1 = ntohl(dns_rr1->ttl);
+	unsigned short data_len1 = ntohs(dns_rr1->data_len);
+	uint32_t answer1 = ntohl(dns_rr1->address);
+	printf("Answer: %08x\n", answer1);
+
+	//position2 += 10;
+
+	addr.s_addr = htonl(answer1);
+	char* str_ip1 = inet_ntoa(addr);
+	printf("Answer: %s\n", str_ip1);
+
+
+	position1 += 2;
+	struct DNS_RR *dns_rr11 = (struct DNS_RR *)(buffer_receive1+position1);
+	type1 = ntohs(dns_rr11->type);
+	printf("Answer Type: %04x\n", type1);
+	class1 = ntohs(dns_rr11->_class);
+	printf("Answer Class: %04x\n", class1);
+	ttl1 = ntohl(dns_rr11->ttl);
+	printf("TTL: %08x\n", ttl1);
+	data_len1 = ntohs(dns_rr11->data_len);
+	printf("Data Len: %04x\n", data_len1);
 
 	// 关闭连接
 	close(socket_tcp);
@@ -225,7 +290,7 @@ int my_receiveUDP(){
 	memset(&serv_addr2, 0, sizeof(serv_addr2));
 	serv_addr2.sin_family = AF_INET;
 	serv_addr2.sin_port = htons(53);
-	serv_addr2.sin_addr.s_addr = inet_addr(address_received); 
+	serv_addr2.sin_addr.s_addr = inet_addr(str_ip1); 
 	if (connect(socket_tcp2, (struct sockaddr *) &serv_addr2, sizeof(serv_addr2)) < 0) {
 		perror("ERROR connecting\n");
 	}
@@ -233,11 +298,83 @@ int my_receiveUDP(){
 	send(socket_tcp2, buffer_send, sizeof(buffer_send), 0);
 
 	// 读取服务器发送的响应
-	recv(socket_tcp2, buffer_receive2, sizeof(buffer_receive2), 0);
+	//接收数据！
+	printf("------------------------------\n");
+	printf("Receiving from tid Server...\n");
+	printf("------------------------------\n\n");
+
+	int received_bytes2 = recv(socket_tcp2, buffer_receive2, sizeof(buffer_receive2), 0);
 	unsigned short data_length2 = *((unsigned short*) buffer_receive2);
-	char address_received2[data_length2];
-	memcpy(address_received2, &buffer_receive2[2], data_length2);
-	printf("Received %d bytes: %s\n", data_length2, address_received2);
+
+	buffer_receive2[received_bytes2] = '\0'; // C语言中，字符串是以空字符结尾的字符序列
+
+	printf("received from %s:%d\n", inet_ntoa(recv_addr->sin_addr), ntohs(recv_addr->sin_port)); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
+
+	struct DNS_Header *dnsheader2 = (struct DNS_Header *)&buffer_receive2[2];
+	unsigned short id2 = ntohs(dnsheader2->id);
+	printf("Transacation ID: %04x\n", id2);
+	unsigned short tag2 = ntohs(dnsheader2->tag);
+	printf("Flags: %04x\n", tag2);
+	unsigned short queryNum2 = ntohs(dnsheader2->queryNum);
+	printf("Questions: %04x\n", queryNum2);
+	unsigned short answerNum2 = ntohs(dnsheader2->answerNum);
+	printf("Answer RRs: %04x\n", answerNum2);
+	unsigned short authorNum2 = ntohs(dnsheader2->authorNum);
+	printf("Authority RRs: %04x\n", authorNum2);
+	unsigned short addNum2 = ntohs(dnsheader2->addNum);
+	printf("Additional RRs: %04x\n", addNum2);
+	
+
+	char *name_start2 = buffer_receive2 + 14;
+	char *name_end2 = strchr(&buffer_receive2[14], '\0');
+	size_t name_len2 = name_end2 - name_start2+1;
+	printf("Name_len: %zu\n", name_len2);
+	char* name_str2 = malloc(name_len2);
+	if (name_str2 == NULL) {
+	    fprintf(stderr, "Failed to allocate memory for name_str.\n");
+	    exit(EXIT_FAILURE);
+	}
+	memcpy(name_str2, name_start2, name_len2);
+	name_str2[name_len2] = '\0';
+	printf("Name: %s\n", name_str2);
+
+	struct DNS_Query *dnsquery2 = (struct DNS_Query *)(buffer_receive2+14+name_len2);
+	unsigned short qtype2 = ntohs(dnsquery2->qtype);
+	printf("Type: %04x\n", qtype2);
+	unsigned short qclass2 = ntohs(dnsquery2->qclass);
+	printf("Class: %04x\n", qclass2);
+	
+
+	//有问题的解包
+	int position2 = 18+name_len2;
+	//假装两字节
+	//position2 += 2;
+
+	struct DNS_RR *dns_rr2 = (struct DNS_RR *)(buffer_receive2+position2);
+	unsigned short type2 = ntohs(dns_rr2->type);
+	unsigned short class2 = ntohs(dns_rr2->_class);
+	uint32_t ttl2 = ntohl(dns_rr2->ttl);
+	unsigned short data_len2 = ntohs(dns_rr2->data_len);
+	uint32_t answer = ntohl(dns_rr2->address);
+	printf("Answer: %08x\n", answer);
+
+	//position2 += 10;
+
+	addr.s_addr = htonl(answer);
+	char* str_ip = inet_ntoa(addr);
+	printf("Answer: %s\n", str_ip);
+
+	position2 += 2;
+	struct DNS_RR *dns_rr22 = (struct DNS_RR *)(buffer_receive2+position2);
+	type2 = ntohs(dns_rr22->type);
+	printf("Answer Type: %04x\n", type2);
+	class2 = ntohs(dns_rr22->_class);
+	printf("Answer Class: %04x\n", class2);
+	ttl2 = ntohl(dns_rr2->ttl);
+	printf("TTL: %08x\n", ttl2);
+	data_len2 = ntohs(dns_rr22->data_len);
+	printf("Data Len: %04x\n", data_len2);
+
 	// 关闭连接
 	close(socket_tcp2);
 	printf("Disconnected from server.\n");
@@ -260,7 +397,7 @@ int my_receiveUDP(){
 	memset(&serv_addr3, 0, sizeof(serv_addr3));
 	serv_addr3.sin_family = AF_INET;
 	serv_addr3.sin_port = htons(53);
-	serv_addr3.sin_addr.s_addr = inet_addr(address_received2); 
+	serv_addr3.sin_addr.s_addr = inet_addr(str_ip); 
 	if (connect(socket_tcp3, (struct sockaddr *) &serv_addr3, sizeof(serv_addr3)) < 0) {
 		perror("ERROR connecting\n");
 	}
@@ -298,9 +435,8 @@ int my_receiveUDP(){
 
 
 		//构造Queries--name
-		char *url = name_str;
-		url[name_len] = '\0';
-		A_data_length += name_len;
+		char *url = name_str2;
+		A_data_length += name_len2;
 
 		//构造头部--dns query
 		//printf("Create DNS query...\n");
@@ -389,8 +525,8 @@ int my_receiveUDP(){
 		memcpy(buffer_send, &dns_header, 12); // 拷贝头部
 		int position = 12;
 
-		memcpy(&buffer_send[position], url, name_len);
-		position += name_len;
+		memcpy(&buffer_send[position], url, name_len2);
+		position += name_len2;
 
 		memcpy(&buffer_send[position], &dns_query, 4);
 		position += 4;
@@ -443,9 +579,8 @@ int my_receiveUDP(){
 
 
 		//构造Queries--name
-		char *url = name_str;
-		url[name_len] = '\0';
-		A_data_length += name_len;
+		char *url = name_str2;
+		A_data_length += name_len2;
 
 		//构造头部--dns query
 		//printf("Create DNS query...\n");
@@ -492,8 +627,8 @@ int my_receiveUDP(){
 		memcpy(buffer_send, &dns_header, 12); // 拷贝头部
 		int position = 12;
 
-		memcpy(&buffer_send[position], url, name_len);
-		position += name_len;
+		memcpy(&buffer_send[position], url, name_len2);
+		position += name_len2;
 
 		memcpy(&buffer_send[position], &dns_query, 4);
 		position += 4;
@@ -527,9 +662,8 @@ int my_receiveUDP(){
 
 
 		//构造Queries--name
-		char *url = name_str;
-		url[name_len] = '\0';
-		A_data_length += name_len;
+		char *url = name_str2;
+		A_data_length += name_len2;
 
 		//构造头部--dns query
 		//printf("Create DNS query...\n");
@@ -576,8 +710,8 @@ int my_receiveUDP(){
 		memcpy(buffer_send, &dns_header, 12); // 拷贝头部
 		int position = 12;
 
-		memcpy(&buffer_send[position], url, name_len);
-		position += name_len;
+		memcpy(&buffer_send[position], url, name_len2);
+		position += name_len2;
 
 		memcpy(&buffer_send[position], &dns_query, 4);
 		position += 4;
@@ -612,9 +746,8 @@ int my_receiveUDP(){
 
 
 		//构造Queries--name
-		char *url = name_str;
-		url[name_len] = '\0';
-		A_data_length += name_len;
+		char *url = name_str2;
+		A_data_length += name_len2;
 
 		//构造头部--dns query
 		//printf("Create DNS query...\n");
@@ -661,8 +794,8 @@ int my_receiveUDP(){
 		memcpy(buffer_send, &dns_header, 12); // 拷贝头部
 		int position = 12;
 
-		memcpy(&buffer_send[position], url, name_len);
-		position += name_len;
+		memcpy(&buffer_send[position], url, name_len2);
+		position += name_len2;
 
 		memcpy(&buffer_send[position], &dns_query, 4);
 		position += 4;

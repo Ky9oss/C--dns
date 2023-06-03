@@ -198,8 +198,71 @@ int my_send_and_receive(char url[MAX_NAME_LEN], int c_qtype){
 	memset(buffer_receive, 0, sizeof(buffer_receive));
 	int received_bytes = recvfrom(socket_udp, buffer_receive, BUF_SIZE, 0, (struct sockaddr*)&recv_addr, &addrlen);
 	buffer_receive[received_bytes] = '\0'; // C语言中，字符串是以空字符结尾的字符序列
+	struct DNS_Header *dnsheader2 = (struct DNS_Header *)&buffer_receive;
+	unsigned short id2 = ntohs(dnsheader2->id);
+	printf("Transacation ID: %04x\n", id2);
+	unsigned short tag2 = ntohs(dnsheader2->tag);
+	printf("Flags: %04x\n", tag2);
+	unsigned short queryNum2 = ntohs(dnsheader2->queryNum);
+	printf("Questions: %04x\n", queryNum2);
+	unsigned short answerNum2 = ntohs(dnsheader2->answerNum);
+	printf("Answer RRs: %04x\n", answerNum2);
+	unsigned short authorNum2 = ntohs(dnsheader2->authorNum);
+	printf("Authority RRs: %04x\n", authorNum2);
+	unsigned short addNum2 = ntohs(dnsheader2->addNum);
+	printf("Additional RRs: %04x\n", addNum2);
+	
 
-	printf("[^_^] Received from Local DNS Server\n"); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
+	char *name_start2 = buffer_receive + 12;
+	char *name_end2 = strchr(&buffer_receive[12], '\0');
+	size_t name_len2 = name_end2 - name_start2+1;
+	printf("Name_len: %zu\n", name_len2);
+	char* name_str2 = malloc(name_len2);
+	if (name_str2 == NULL) {
+	    fprintf(stderr, "Failed to allocate memory for name_str.\n");
+	    exit(EXIT_FAILURE);
+	}
+	memcpy(name_str2, name_start2, name_len2);
+	name_str2[name_len2] = '\0';
+	printf("Name: %s\n", name_str2);
+
+	struct DNS_Query *dnsquery2 = (struct DNS_Query *)(buffer_receive+12+name_len2);
+	unsigned short qtype2 = ntohs(dnsquery2->qtype);
+	printf("Type: %04x\n", qtype2);
+	unsigned short qclass2 = ntohs(dnsquery2->qclass);
+	printf("Class: %04x\n", qclass2);
+	
+
+	int position2 = 18+name_len2;
+	//假装两字节
+	//position2 += 2;
+
+	struct in_addr addr;
+	struct DNS_RR *dns_rr2 = (struct DNS_RR *)(buffer_receive+position2);
+	unsigned short type2 = ntohs(dns_rr2->type);
+	printf("Answer Type: %04x\n", type2);
+	unsigned short class2 = ntohs(dns_rr2->_class);
+	printf("Answer Class: %04x\n", class2);
+	uint32_t ttl2 = ntohl(dns_rr2->ttl);
+	printf("TTL: %08x\n", ttl2);
+	unsigned short data_len2 = ntohs(dns_rr2->data_len);
+	printf("Data Len: %04x\n", data_len2);
+
+	position2 -= 2;
+
+	if(type2==0x0001){
+		struct DNS_RR *dns_rr22 = (struct DNS_RR *)(buffer_receive+position2);
+		uint32_t answer = ntohl(dns_rr22->address);
+		printf("Answer in hex: %08x\n", answer);
+		addr.s_addr = htonl(answer);
+		char* str_ip = inet_ntoa(addr);
+		printf("Answer: %s\n", str_ip);
+	}
+
+
+
+
+	printf("[^_^] Received from Local DNS Server\n\n\n"); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
 
 	return 1;
 
