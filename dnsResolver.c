@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <time.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +22,8 @@ int socket_udp;
 struct sockaddr_in recv_addr;
 struct sockaddr_in send_addr;
 socklen_t addrlen = sizeof(recv_addr);
+clock_t start_time, end_time;
+double cpu_time_used;
 
 
 
@@ -31,16 +34,15 @@ int main(int argc, char *argv[]){
 	printf("------------------------------------------\n");
 	printf("||    Welcome to HKX&CZN dns client !   ||\n");
 	printf("------------------------------------------\n");
-	printf("------------------------------------------\n\n\n\n");
+	printf("------------------------------------------\n");
 
 
 	while(1){
 
-	printf("Input the query type (A, MX, PTR, CNAME): \n");
+	printf("\n\n\nInput the query type (A, MX, PTR, CNAME): \n");
 	char input1[MAX_NAME_LEN];
 	fgets(input1, MAX_NAME_LEN, stdin);
 	if (strcmp(input1, "PTR\n") == 0) {
-		printf("GET PTR!\n");
 		int c_qtype=0x000c;
 
 		printf("Input the IP address: \n");
@@ -53,7 +55,6 @@ int main(int argc, char *argv[]){
 
 
 	} else if (strcmp(input1, "A\n") == 0) {
-		printf("GET A!\n");
 		int c_qtype=0x0001;
 
 		printf("Input the url: \n");
@@ -64,7 +65,6 @@ int main(int argc, char *argv[]){
 		my_send_and_receive(url, c_qtype);
 
 	} else if (strcmp(input1, "CNAME\n") == 0) {
-		printf("GET CNMAE!\n");
 		int c_qtype=0x0005;
 
 		printf("Input the url: \n");
@@ -75,7 +75,6 @@ int main(int argc, char *argv[]){
 		my_send_and_receive(url, c_qtype);
 
 	} else if (strcmp(input1, "MX\n") == 0) {
-		printf("GET MX!\n");
 		int c_qtype=0x000f;
 
 		printf("Input the url: \n");
@@ -96,6 +95,9 @@ int main(int argc, char *argv[]){
 }
 
 int my_send_and_receive(char url[MAX_NAME_LEN], int c_qtype){
+
+	// 记录开始时间
+	start_time = clock();
 	 
 	//构造udp socket
 	if(count==0){
@@ -111,7 +113,6 @@ int my_send_and_receive(char url[MAX_NAME_LEN], int c_qtype){
 		}
 
 
-		printf("Create (sockaddr_in)send_addr...\n");
 		memset(&send_addr, 0, sizeof(send_addr));//初始化结构体中的数据
 		send_addr.sin_family = AF_INET; 
 		send_addr.sin_port = htons(53); 
@@ -141,7 +142,6 @@ int my_send_and_receive(char url[MAX_NAME_LEN], int c_qtype){
 
 
 	//构造头部--dns header
-	printf("Create DNS Header...\n");
 	struct DNS_Header dns_header;
 	memset(&dns_header, 0, sizeof(dns_header));
 	dns_header.id = htons(0x0001); // 设置标识符
@@ -156,7 +156,6 @@ int my_send_and_receive(char url[MAX_NAME_LEN], int c_qtype){
 
 
 	//构造头部--dns query
-	printf("Create DNS query...\n");
 	struct DNS_Query dns_query;
 
 
@@ -184,19 +183,27 @@ int my_send_and_receive(char url[MAX_NAME_LEN], int c_qtype){
 	position += 2;
 
 
-	printf("Start Send...\n");
 	sendto(socket_udp, buffer_send, sizeof(buffer_send), 0, (struct sockaddr*)&send_addr, sizeof(send_addr));
 
 
 
 
+
 	//接收数据！
-	printf("------------------------------\n");
+	printf("\n\n------------------------------\n");
 	printf("Receiving from Local DNS Server...\n");
-	printf("------------------------------\n\n");
+	printf("------------------------------\n");
 
 	memset(buffer_receive, 0, sizeof(buffer_receive));
 	int received_bytes = recvfrom(socket_udp, buffer_receive, BUF_SIZE, 0, (struct sockaddr*)&recv_addr, &addrlen);
+	// 记录结束时间
+	end_time = clock();
+
+	// 计算执行时间
+	cpu_time_used = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
+
+	// 输出执行时间
+	//printf("Took %f seconds to receive from local dns server.\n", cpu_time_used);
 	buffer_receive[received_bytes] = '\0'; // C语言中，字符串是以空字符结尾的字符序列
 	struct DNS_Header *dnsheader2 = (struct DNS_Header *)&buffer_receive;
 	unsigned short id2 = ntohs(dnsheader2->id);

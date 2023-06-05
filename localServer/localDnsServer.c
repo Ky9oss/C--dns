@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <time.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +22,8 @@ char buffer_tcp_receive[BUF_SIZE];
 int my_receiveUDP();
 struct in_addr addr;
 char ip_str[64];
+clock_t start_time, end_time;
+double cpu_time_used;
 
 
 
@@ -54,7 +57,6 @@ int my_receiveUDP(){
 		perror("bind() failed\n");
 		exit(EXIT_FAILURE);
 	};
-	printf("Create (sockaddr_in)send_addr...\n");
 	struct sockaddr_in send_addr;
 	memset(&send_addr, 0, sizeof(send_addr));//初始化结构体中的数据
 	send_addr.sin_family = AF_INET; 
@@ -64,7 +66,7 @@ int my_receiveUDP(){
 	while (1) {
 	
 	//接收数据！
-	printf("------------------------------\n");
+	printf("\n\n\n------------------------------\n");
 	printf("Receiving from DNS Clinet...\n");
 	printf("------------------------------\n\n");
 	int received_bytes = recvfrom(socket_udp, buffer_receive, BUF_SIZE, 0, (struct sockaddr*)recv_addr, &addrlen);
@@ -74,17 +76,17 @@ int my_receiveUDP(){
 
 	struct DNS_Header *dnsheader = (struct DNS_Header *)buffer_receive;
 	unsigned short id = ntohs(dnsheader->id);
-	printf("Transacation ID: %x\n", id);
+	printf("Transacation ID: %04x\n", id);
 	unsigned short tag = ntohs(dnsheader->tag);
-	printf("Flags: %x\n", tag);
+	printf("Flags: %04x\n", tag);
 	unsigned short queryNum = ntohs(dnsheader->queryNum);
-	printf("Questions: %x\n", queryNum);
+	printf("Questions: %04x\n", queryNum);
 	unsigned short answerNum = ntohs(dnsheader->answerNum);
-	printf("Answer RRs: %x\n", answerNum);
+	printf("Answer RRs: %04x\n", answerNum);
 	unsigned short authorNum = ntohs(dnsheader->authorNum);
-	printf("Authority RRs: %x\n", authorNum);
+	printf("Authority RRs: %04x\n", authorNum);
 	unsigned short addNum = ntohs(dnsheader->addNum);
-	printf("Additional RRs: %x\n", addNum);
+	printf("Additional RRs: %04x\n", addNum);
 	
 
 	char *name_start = buffer_receive + 12;
@@ -102,17 +104,20 @@ int my_receiveUDP(){
 
 	struct DNS_Query *dnsquery = (struct DNS_Query *)(buffer_receive+12+name_len);
 	unsigned short qtype = ntohs(dnsquery->qtype);
-	printf("Type: %x\n", qtype);
+	printf("Type: %04x\n", qtype);
 	unsigned short qclass = ntohs(dnsquery->qclass);
-	printf("Class: %x\n", qclass);
+	printf("Class: %04x\n", qclass);
 
 	
 
 
-	printf("------------------------------\n");
+	printf("\n\n\n------------------------------\n");
 	printf("Send to Root DNS Server...\n");
 	printf("------------------------------\n\n");
 
+
+	//开始记时
+	start_time = clock();
 
 	//构造16进制包长
 	int value = 16+name_len;  // 填充一个整型数字
@@ -125,7 +130,6 @@ int my_receiveUDP(){
 
 
 	//构造头部--dns header
-	printf("Create DNS Header...\n");
 	struct DNS_Header dns_header;
 	memset(buffer_send, 0, sizeof(*buffer_send));
 	dns_header.id = htons(id); // 设置标识符
@@ -136,7 +140,6 @@ int my_receiveUDP(){
 
 
 	//构造头部--dns query
-	printf("Create DNS query...\n");
 	struct DNS_Query dns_query;
 	dns_query.qtype = htons(qtype);
 	dns_query.qclass = htons(qclass);
@@ -186,23 +189,31 @@ int my_receiveUDP(){
 	if (connect(socket_tcp, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 		perror("ERROR connecting\n");
 	}
-	printf("Connected to server.\n");
-	printf("Start Send to Root...\n");
 	send(socket_tcp, buffer_send, sizeof(buffer_send), 0);
 
 
 	// 读取服务器发送的响应
 	//接收数据！
-	printf("------------------------------\n");
+	printf("\n\n\n------------------------------\n");
 	printf("Receiving from Root Server...\n");
 	printf("------------------------------\n\n");
 
 	int received_bytes1 = recv(socket_tcp, buffer_receive1, sizeof(buffer_receive1), 0);
+
 	unsigned short data_length1 = *((unsigned short*) buffer_receive1);
 
 	buffer_receive1[received_bytes1] = '\0'; // C语言中，字符串是以空字符结尾的字符序列
+						 //
+	// 记录结束时间
+	end_time = clock();
 
-	printf("received from %s:%d\n", inet_ntoa(recv_addr->sin_addr), ntohs(recv_addr->sin_port)); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
+	// 计算执行时间
+	cpu_time_used = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
+	
+	// 输出执行时间
+	printf("Took %f seconds to receive data.\n", cpu_time_used);
+
+	printf("Received from %s:%d\n", inet_ntoa(serv_addr.sin_addr), ntohs(serv_addr.sin_port)); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
 
 	struct DNS_Header *dnsheader1 = (struct DNS_Header *)&buffer_receive1[2];
 	unsigned short id1 = ntohs(dnsheader1->id);
@@ -271,12 +282,12 @@ int my_receiveUDP(){
 
 	// 关闭连接
 	close(socket_tcp);
-	printf("Disconnected from server.\n");
 
 
 	printf("\n\n\n\n------------------------------\n");
 	printf("Send to tid DNS Server...\n");
 	printf("------------------------------\n");
+
 
 	//构造tcp socket
 	int socket_tcp2;
@@ -294,12 +305,15 @@ int my_receiveUDP(){
 	if (connect(socket_tcp2, (struct sockaddr *) &serv_addr2, sizeof(serv_addr2)) < 0) {
 		perror("ERROR connecting\n");
 	}
-	printf("Connected to server.\n");
+
+	// 记录开始时间
+	start_time = clock();
+
 	send(socket_tcp2, buffer_send, sizeof(buffer_send), 0);
 
 	// 读取服务器发送的响应
 	//接收数据！
-	printf("------------------------------\n");
+	printf("\n\n\n------------------------------\n");
 	printf("Receiving from tid Server...\n");
 	printf("------------------------------\n\n");
 
@@ -308,7 +322,16 @@ int my_receiveUDP(){
 
 	buffer_receive2[received_bytes2] = '\0'; // C语言中，字符串是以空字符结尾的字符序列
 
-	printf("received from %s:%d\n", inet_ntoa(recv_addr->sin_addr), ntohs(recv_addr->sin_port)); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
+	// 记录结束时间
+	end_time = clock();
+
+	// 计算执行时间
+	cpu_time_used = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
+	
+	// 输出执行时间
+	printf("Took %f seconds to receive data.\n", cpu_time_used);
+
+	printf("Received from %s:%d\n", inet_ntoa(serv_addr2.sin_addr), ntohs(serv_addr2.sin_port)); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
 
 	struct DNS_Header *dnsheader2 = (struct DNS_Header *)&buffer_receive2[2];
 	unsigned short id2 = ntohs(dnsheader2->id);
@@ -377,12 +400,11 @@ int my_receiveUDP(){
 
 	// 关闭连接
 	close(socket_tcp2);
-	printf("Disconnected from server.\n");
 
 
 
 
-	printf("------------------------------\n");
+	printf("\n\n\n------------------------------\n");
 	printf("Send to 2nd DNS Server...\n");
 	printf("------------------------------\n\n");
 	//构造tcp socket
@@ -401,8 +423,6 @@ int my_receiveUDP(){
 	if (connect(socket_tcp3, (struct sockaddr *) &serv_addr3, sizeof(serv_addr3)) < 0) {
 		perror("ERROR connecting\n");
 	}
-	printf("Connected to server.\n");
-	printf("Start Send to Root...\n");
 	send(socket_tcp3, buffer_send, sizeof(buffer_send), 0);
 
 
@@ -439,7 +459,6 @@ int my_receiveUDP(){
 		A_data_length += name_len2;
 
 		//构造头部--dns query
-		//printf("Create DNS query...\n");
 		struct DNS_Query dns_query;
 		dns_query.qtype = htons(qtype);
 		dns_query.qclass = htons(0x0001);

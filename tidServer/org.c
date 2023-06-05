@@ -63,6 +63,7 @@ int main() {
 
         // 读取客户端发送的数据
         int bytes_received = recv(client_socket, buffer_receive, sizeof(buffer_receive), 0);
+	printf("\n\n\n\nReceived from %s:%d\n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port)); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
         printf("Received %d bytes: %s\n", bytes_received, buffer);
 	struct DNS_Header *dnsheader = (struct DNS_Header *)&buffer_receive[2];
 	unsigned short id = ntohs(dnsheader->id);

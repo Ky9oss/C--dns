@@ -60,6 +60,7 @@ int main() {
         }
 
         printf("New client connected.\n");
+	printf("\n\n\n\nReceived from %s:%d\n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port)); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
 
         // 读取客户端发送的数据
         int bytes_received = recv(client_socket, buffer_receive, sizeof(buffer_receive), 0);
