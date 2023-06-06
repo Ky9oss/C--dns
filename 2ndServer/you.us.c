@@ -51,13 +51,13 @@ int main() {
     }
 
     printf("Listening on port %d...\n", 53);
-
-    while (1) {
         // 接受新的客户端连接请求
         if ((client_socket = accept(listening_socket, (struct sockaddr *)&client_address, (socklen_t*)&addrlen)) < 0) {
             perror("Accept failed");
             exit(EXIT_FAILURE);
         }
+
+    while (1) {
 
         printf("New client connected.\n");
 
@@ -102,18 +102,95 @@ int main() {
 	//----------------数据库
 
 	
-	char address_answers[] = "127.4.4.1";
-	unsigned short length = sizeof(address_answers);
+	//构造头部--dns header
+	printf("Create DNS Header...\n");
+	struct DNS_Header dns_header;
+	memset(&dns_header, 0, sizeof(dns_header));
+	//------------下面的数据待更改
+	dns_header.id = htons(0x0001); // 设置标识符
+	dns_header.tag = htons(0x8180); // 设置标志位，表示这是一个标准查询
+	dns_header.queryNum = htons(1); // 问题数为1
+	dns_header.answerNum = htons(1);
+	dns_header.addNum = htons(0);
+	dns_header.authorNum = htons(0);
+	int A_data_length = 12; //-------注意A_data_length，用来计算包的长度
 
-	char buffer_send[sizeof(address_answers)+2];
+
+	//构造Queries--name
+	char* url = *name_str;
+	A_data_length += name_len;
+
+	//构造头部--dns query
+	//printf("Create DNS query...\n");
+	struct DNS_Query dns_query;
+	dns_query.qtype = htons(qtype);
+	dns_query.qclass = htons(0x0001);
+	A_data_length += 4;
+
+	//Answers--构造name
+	unsigned short name_answers = htons(0xc00c);
+	A_data_length += 2;
+
+	  
+	//Answers--构造address
+	char ip_str[] = "127.4.4.1";//-------------------------------------------------------------
+	struct in_addr addr;
+	uint32_t ip_int;
+	if (inet_aton(ip_str, &addr) == 0) {
+	perror("inet_aton");
+	exit(EXIT_FAILURE);
+	}
+	ip_int = ntohl(addr.s_addr);
+	uint32_t address_answers = htonl(ip_int);
+	int address_answers_len = 4;
+	A_data_length += address_answers_len;
+
+	//Answers身体
+	struct DNS_RR dns_rr_answers1;
+	memset(&dns_rr_answers1, 0, sizeof(dns_rr_answers1));
+	dns_rr_answers1.type = htons(0x0001); // 设置标识符
+	dns_rr_answers1._class = htons(0x0001); // 设置标识符
+	dns_rr_answers1.ttl = htonl(0x00000064); // 设置标识符
+	//注意data length，是后面的address数据的length
+	dns_rr_answers1.data_len = htons(0x0004); // 设置标识符
+
+	A_data_length += 10;
+
+	unsigned short packet_length = htons(A_data_length);
+
+	A_data_length += 2;
+
+
+	char buffer_send[A_data_length];
+
+
+	//开始将数据存入buffer
+	//memcpy参数：参数1为你要拷贝到的缓冲区地址，参数2为你要拷贝数据的地址，参数3为数据的长度
 	memset(buffer_send, 0, sizeof(*buffer_send));
-	memcpy(buffer_send, &length, 2);
-	memcpy(&buffer_send[2], &address_answers, sizeof(address_answers)); // 拷贝头部
+
+	memcpy(&buffer_send, &packet_length, 2); // 拷贝头部
+	int position = 2;
+
+	memcpy(&buffer_send[position], &dns_header, 12); // 拷贝头部
+	position += 12;
+
+	memcpy(&buffer_send[position], url, name_len);
+	position += name_len;
+
+	memcpy(&buffer_send[position], &dns_query, 4);
+	position += 4;
+
+	memcpy(&buffer_send[position], &name_answers, 2); // 拷贝头部
+	position += 2;
+
+	memcpy(&buffer_send[position], &dns_rr_answers1, 10); // 拷贝头部
+	position += 10;
+
+	memcpy(&buffer_send[position], &address_answers, address_answers_len); // 拷贝头部
+	position += address_answers_len;
+
         send(client_socket, buffer_send, sizeof(buffer_send), 0);
 
-        // 关闭连接
-        close(client_socket);
-        printf("Client disconnected.\n");
     }
 
     return 0;
