@@ -1,4 +1,3 @@
-#include <stddef.h>
 #include <stdio.h>
 #include <time.h>
 #include <ctype.h>
@@ -87,7 +86,7 @@ int my_receiveUDP(){
 		exit(EXIT_FAILURE);
 	}
 	recv_addr->sin_family = AF_INET; 
-	recv_addr->sin_port = 0; //htons 转换为网络字节序（大端序）
+	recv_addr->sin_port = htons(12348); //htons 转换为网络字节序（大端序）
 	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
 	addrlen = sizeof(*recv_addr);
 	if (bind(socket_tcp, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
@@ -108,7 +107,7 @@ int my_receiveUDP(){
 		exit(EXIT_FAILURE);
 	}
 	recv_addr->sin_family = AF_INET; 
-	recv_addr->sin_port = 0; //htons 转换为网络字节序（大端序）
+	recv_addr->sin_port = htons(12346); //htons 转换为网络字节序（大端序）
 	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
 	addrlen = sizeof(*recv_addr);
 	if (bind(socket_tcp2, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
@@ -129,7 +128,7 @@ int my_receiveUDP(){
 		exit(EXIT_FAILURE);
 	}
 	recv_addr->sin_family = AF_INET; 
-	recv_addr->sin_port = 0; //htons 转换为网络字节序（大端序）
+	recv_addr->sin_port = htons(12347); //htons 转换为网络字节序（大端序）
 	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
 	addrlen = sizeof(*recv_addr);
 	if (bind(socket_tcp3, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
@@ -489,13 +488,23 @@ int my_receiveUDP(){
 	send(socket_tcp3, buffer_send, sizeof(buffer_send), 0);
 
 
-	ssize_t n =recv(socket_tcp3, buffer_receive3, sizeof(buffer_receive3), 0);
-	// 去掉头两个字节
-	char new_buffer[sizeof(buffer_receive3) - 2];
-	int new_len = n -2 ;
+	// 读取服务器发送的响应
+	recv(socket_tcp3, buffer_receive3, sizeof(buffer_receive3), 0);
+	unsigned short data_length3 = *((unsigned short*) buffer_receive3);
+	char address_received3[data_length3];
+	memcpy(address_received3, &buffer_receive3[2], data_length3);
+	printf("Received %d bytes: %s\n", data_length3, address_received3);
 
-	memcpy(new_buffer, buffer_receive3 + 2, n - 2);
-	sendto(socket_udp, new_buffer, new_len, 0, (struct sockaddr*)&send_addr, sizeof(send_addr));
+	int len = data_length3 - 2;
+	int lenn = strlen(buffer_receive3) - 2;
+	// 去掉前两个字符
+	memmove(buffer_receive3, buffer_receive3+2, len-1);
+
+
+	char buffer_send2[len];
+	memset(buffer_send2, 0, sizeof(*buffer_send2));
+	memcpy(buffer_send2, &buffer_receive3, lenn); // 拷贝头部
+	sendto(socket_udp, buffer_send2, sizeof(buffer_send2), 0, (struct sockaddr*)&send_addr, sizeof(send_addr));
 	
 	/*
 	//A

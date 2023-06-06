@@ -98,8 +98,8 @@ int main() {
 
 
 
-
 	//----------------数据库
+
 
 	
 	//构造头部--dns header
@@ -253,12 +253,12 @@ int main() {
 	memset(&dns_rr_answers1, 0, sizeof(dns_rr_answers1));
 	dns_rr_answers1.type = htons(qtype); // 设置标识符
 	dns_rr_answers1._class = htons(0x0001); // 设置标识符
-	dns_rr_answers1.ttl = htonl(0x00000064); // 设置标识符
+	unsigned int ccc = 86400;
+	dns_rr_answers1.ttl = htonl(ccc); // 设置标识符
 	//注意data length，是后面的address数据的length
 	dns_rr_answers1.data_len = htons(name_len2+2+2); // 设置标识符
 
 	A_data_length += 10;
-
 
 
 	//Additional
