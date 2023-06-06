@@ -180,6 +180,15 @@ int my_receiveUDP(){
 		exit(EXIT_FAILURE);
 	}
 
+	recv_addr->sin_family = AF_INET; 
+	recv_addr->sin_port = htons(12345); //htons 转换为网络字节序（大端序）
+	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
+	socklen_t addrlen = sizeof(*recv_addr);
+	if (bind(socket_tcp, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
+		perror("bind() failed\n");
+		exit(EXIT_FAILURE);
+	};
+
 	struct hostent *server;
 	struct sockaddr_in serv_addr;
 	memset(&serv_addr, 0, sizeof(serv_addr));
@@ -295,6 +304,14 @@ int my_receiveUDP(){
 		perror("socket() failed\n");
 		exit(EXIT_FAILURE);
 	}
+	recv_addr->sin_family = AF_INET; 
+	recv_addr->sin_port = htons(12345); //htons 转换为网络字节序（大端序）
+	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
+	addrlen = sizeof(*recv_addr);
+	if (bind(socket_tcp, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
+		perror("bind() failed\n");
+		exit(EXIT_FAILURE);
+	};
 
 	struct hostent *server2;
 	struct sockaddr_in serv_addr2;
@@ -413,6 +430,14 @@ int my_receiveUDP(){
 		perror("socket() failed\n");
 		exit(EXIT_FAILURE);
 	}
+	recv_addr->sin_family = AF_INET; 
+	recv_addr->sin_port = htons(12345); //htons 转换为网络字节序（大端序）
+	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
+	addrlen = sizeof(*recv_addr);
+	if (bind(socket_tcp, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
+		perror("bind() failed\n");
+		exit(EXIT_FAILURE);
+	};
 
 	struct hostent *server3;
 	struct sockaddr_in serv_addr3;
