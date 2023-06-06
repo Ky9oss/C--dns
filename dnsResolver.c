@@ -86,7 +86,7 @@ int main(int argc, char *argv[]){
 
 	} else {
 		printf("WRONG INPUT! You must input A or MX or PTR or CNMAE\n");
-		exit(1);
+		//exit(1);
 	    // 输入不是有效的记录类型
 	}
 

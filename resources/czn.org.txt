@@ -1,0 +1,4 @@
+wow.czn.org A IN 3600 127.10.02.32
+wow.czn.org MX IN 3600 mail.czn.org
+mail.czn.org A IN 3600 127.20.8.1
+cname.czn.org CNAME IN 3600 127.28.31.21

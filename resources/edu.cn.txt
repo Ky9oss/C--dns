@@ -1,0 +1,4 @@
+bupt.edu.cn A IN 3600 127.12.02.32
+bupt.edu.cn MX IN 3600 mail.edu.cn
+mail.edu.cn A IN 3600 127.22.8.1
+buptnet.edu.cn CNAME IN 3600 127.22.31.21

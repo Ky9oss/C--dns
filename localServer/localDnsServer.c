@@ -491,15 +491,78 @@ int my_receiveUDP(){
 
 	ssize_t n =recv(socket_tcp3, buffer_receive3, sizeof(buffer_receive3), 0);
 	// 去掉头两个字节
-	char new_buffer[sizeof(buffer_receive3) - 2];
+	char new_buffer[n - 2];
 	int new_len = n -2 ;
 
+	struct DNS_Header *dnsheader3 = (struct DNS_Header *)&buffer_receive3[2];
+	unsigned short id3 = ntohs(dnsheader3->id);
+	printf("Transacation ID: %04x\n", id3);
+	unsigned short tag3 = ntohs(dnsheader3->tag);
+	printf("Flags: %04x\n", tag3);
+	unsigned short queryNum3 = ntohs(dnsheader3->queryNum);
+	printf("Questions: %04x\n", queryNum3);
+	unsigned short answerNum3 = ntohs(dnsheader3->answerNum);
+	printf("Answer RRs: %04x\n", answerNum3);
+	unsigned short authorNum3 = ntohs(dnsheader3->authorNum);
+	printf("Authority RRs: %04x\n", authorNum3);
+	unsigned short addNum3 = ntohs(dnsheader3->addNum);
+	printf("Additional RRs: %04x\n", addNum3);
+	
+
+	char *name_start3 = buffer_receive3 + 14;
+	char *name_end3 = strchr(&buffer_receive3[14], '\0');
+	size_t name_len3 = name_end3 - name_start3+1;
+	printf("Name_len: %zu\n", name_len3);
+	char* name_str3 = malloc(name_len3);
+	if (name_str3 == NULL) {
+	    fprintf(stderr, "Failed to allocate memory for name_str.\n");
+	    exit(EXIT_FAILURE);
+	}
+	memcpy(name_str3, name_start3, name_len3);
+	name_str3[name_len3] = '\0';
+	printf("Name: %s\n", name_str3);
+
+	struct DNS_Query *dnsquery3 = (struct DNS_Query *)(buffer_receive3+34+name_len3);
+	unsigned short qtype3 = ntohs(dnsquery3->qtype);
+	printf("Type: %04x\n", qtype3);
+	unsigned short qclass3 = ntohs(dnsquery3->qclass);
+	printf("Class: %04x\n", qclass3);
+	
+
+	int position3 = 18+name_len3;
+
+
+	position3 += 2;
+	struct DNS_RR *dns_rr33 = (struct DNS_RR *)(buffer_receive3+position3);
+	unsigned short type3 = ntohs(dns_rr33->type);
+	printf("Answer Type: %04x\n", type3);
+	unsigned short class3 = ntohs(dns_rr33->_class);
+	printf("Answer Class: %04x\n", class3);
+	unsigned int ttl3 = ntohl(dns_rr33->ttl);
+	printf("TTL: %08x\n", ttl3);
+	unsigned short data_len3 = ntohs(dns_rr33->data_len);
+	printf("Data Len: %04x\n", data_len3);
+
+
+	position3 += 8;
+
+	char strr[10];
+	sprintf(strr, "%d", data_len3);
+	printf("data_len3: %s\n", strr);
+	char wow[atoi(strr)];
+	printf("data_len4: %d\n", atoi(strr));
+	memcpy(&wow, &buffer_receive3[position3], atoi(strr));
+	wow[atoi(strr)] = '\0';
+	printf("answer: %s\n", wow);
+
+
+	memset(&new_buffer, 0, new_len);
 	memcpy(new_buffer, buffer_receive3 + 2, n - 2);
 	sendto(socket_udp, new_buffer, new_len, 0, (struct sockaddr*)&send_addr, sizeof(send_addr));
 	
 	/*
 	//A
-	if(qtype==0x0001){
+	if(qtype==0x0003){
 
 		//构造头部--dns header
 		printf("Create DNS Header...\n");

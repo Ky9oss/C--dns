@@ -1,0 +1,4 @@
+cc.you.us A IN 3600 127.11.02.32
+cc.you.us MX IN 3600 mail.you.us
+mail.you.us A IN 3600 127.21.8.1
+cname.you.us CNAME IN 3600 127.21.31.21
