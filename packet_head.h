@@ -9,7 +9,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>     
-#define BUF_SIZE 4096
+#define BUF_SIZE 10000
 #define MAX_NAME_LEN 256
 struct DNS_Header{
 	unsigned short id: 16;

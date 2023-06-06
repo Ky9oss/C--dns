@@ -102,9 +102,15 @@ int my_send_and_receive(char url[MAX_NAME_LEN], int c_qtype){
 	//构造udp socket
 	if(count==0){
 		socket_udp = socket(AF_INET, SOCK_DGRAM, 0);
+		// 设置SO_REUSEADDR选项
+		int optval = 1;
+		if (setsockopt(socket_udp, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+			perror("setsockopt");
+			exit(EXIT_FAILURE);
+		}
 		memset(&recv_addr, 0, sizeof(recv_addr));//初始化结构体中的数据
 		recv_addr.sin_family = AF_INET; 
-		recv_addr.sin_port = htons(12345); //htons 转换为网络字节序（大端序）
+		recv_addr.sin_port = htons(12355); //htons 转换为网络字节序（大端序）
 		recv_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); 
 
 		if (bind(socket_udp, (struct sockaddr*)&recv_addr, sizeof(recv_addr)) == -1) {

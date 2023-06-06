@@ -13,6 +13,7 @@
 
 
 char buffer_receive[BUF_SIZE];
+struct DNS_Header dns_header;
 
 int main() {
     int listening_socket, client_socket;
@@ -59,7 +60,6 @@ int main() {
 
     while (1) {
 
-        printf("New client connected.\n");
 
         // 读取客户端发送的数据
         int bytes_received = recv(client_socket, buffer_receive, sizeof(buffer_receive), 0);
@@ -103,8 +103,8 @@ int main() {
 
 	
 	//构造头部--dns header
-	printf("Create DNS Header...\n");
-	struct DNS_Header dns_header;
+	if(qtype==0x0001){
+
 	memset(&dns_header, 0, sizeof(dns_header));
 	//------------下面的数据待更改
 	dns_header.id = htons(0x0001); // 设置标识符
@@ -190,7 +190,363 @@ int main() {
 	position += address_answers_len;
 
         send(client_socket, buffer_send, sizeof(buffer_send), 0);
+	}
 
+	// MX
+	if(qtype==0x000f){
+
+	memset(&dns_header, 0, sizeof(dns_header));
+	dns_header.id = htons(0x0001); // 设置标识符
+	dns_header.tag = htons(0x8500); // 设置标志位，表示这是一个标准查询
+	dns_header.queryNum = htons(1); // 问题数为1
+	dns_header.answerNum = htons(1);
+	dns_header.addNum = htons(1);
+	dns_header.authorNum = htons(0);
+	int A_data_length = 12; //-------注意A_data_length，用来计算包的长度
+
+
+	//构造Queries--name
+	char* url = *name_str;
+	A_data_length += name_len;
+
+	//构造头部--dns query
+	//printf("Create DNS query...\n");
+	struct DNS_Query dns_query;
+	dns_query.qtype = htons(qtype);
+	dns_query.qclass = htons(0x0001);
+	A_data_length += 4;
+
+	//Answers--构造name
+	unsigned short name_answers = htons(0xc00c);
+	A_data_length += 2;
+
+	  
+	//构造name
+	char url2[] = "mx1";
+	int url_len = strlen(url2);
+	char domain_name[url_len+1];
+	int e = 0;
+	for (int i = 0; i < url_len+1; i++) {
+	    if (url2[i] == '.') {
+		domain_name[i-e] = '\x0'+e;
+		e=0;
+	    } else {
+		domain_name[i+1] = url2[i];
+		e++;
+	    }
+	}
+	domain_name[url_len-e+1] = '\x0'+(e-1);
+	unsigned short name_len2 = strlen(domain_name);
+
+	A_data_length += name_len2;
+
+	//Answers--构造name
+	unsigned short mx_answer = htons(0xc00c);
+	A_data_length += 2;
+
+	//Answers--构造preference
+	unsigned short preference = htons(0x0005);
+	A_data_length += 2;
+
+	//Answers身体
+	struct DNS_RR dns_rr_answers1;
+	memset(&dns_rr_answers1, 0, sizeof(dns_rr_answers1));
+	dns_rr_answers1.type = htons(qtype); // 设置标识符
+	dns_rr_answers1._class = htons(0x0001); // 设置标识符
+	dns_rr_answers1.ttl = htonl(0x00000064); // 设置标识符
+	//注意data length，是后面的address数据的length
+	dns_rr_answers1.data_len = htons(name_len2+2+2); // 设置标识符
+
+	A_data_length += 10;
+
+
+
+	//Additional
+	//Answers--构造name
+	unsigned char byte2 = A_data_length - name_len2 - 2 ;
+	unsigned char byte1 = 0xc0; // 定义一个一字节的0xc0
+
+	unsigned short ll = (byte1 << 8) | byte2; // 将两个字节合并成一个两字节的整数
+
+	unsigned short add_name_answers = htons(ll);
+	A_data_length += 2;
+
+	//Answers--构造address
+	char add_ip_str[] = "127.4.4.100";//-------------------------------------------------------------
+	struct in_addr add_addr;
+	uint32_t add_ip_int;
+	if (inet_aton(add_ip_str, &add_addr) == 0) {
+	perror("inet_aton");
+	exit(EXIT_FAILURE);
+	}
+	add_ip_int = ntohl(add_addr.s_addr);
+	uint32_t add_address_answers = htonl(add_ip_int);
+	int add_address_answers_len = 4;
+	A_data_length += add_address_answers_len;
+
+	//Answers身体
+	struct DNS_RR add_dns_rr_answers1;
+	memset(&add_dns_rr_answers1, 0, sizeof(add_dns_rr_answers1));
+	add_dns_rr_answers1.type = htons(0x0001); // 设置标识符
+	add_dns_rr_answers1._class = htons(0x0001); // 设置标识符
+	add_dns_rr_answers1.ttl = htonl(0x00000064); // 设置标识符
+	//注意data length，是后面的address数据的length
+	add_dns_rr_answers1.data_len = htons(0x0004); // 设置标识符
+
+	A_data_length += 10;
+
+	unsigned short packet_length = htons(A_data_length);
+
+	A_data_length += 2;
+
+
+	char buffer_send[A_data_length];
+
+
+	//开始将数据存入buffer
+	//memcpy参数：参数1为你要拷贝到的缓冲区地址，参数2为你要拷贝数据的地址，参数3为数据的长度
+	memset(buffer_send, 0, sizeof(*buffer_send));
+
+	memcpy(&buffer_send, &packet_length, 2); // 拷贝头部
+	int position = 2;
+
+	memcpy(&buffer_send[position], &dns_header, 12); // 拷贝头部
+	position += 12;
+
+	memcpy(&buffer_send[position], url, name_len);
+	position += name_len;
+
+	memcpy(&buffer_send[position], &dns_query, 4);
+	position += 4;
+
+	memcpy(&buffer_send[position], &name_answers, 2); // 拷贝头部
+	position += 2;
+
+	memcpy(&buffer_send[position], &dns_rr_answers1, 10); // 拷贝头部
+	position += 10;
+
+	memcpy(&buffer_send[position], &preference, 2); // 拷贝头部
+	position += 2;
+
+	memcpy(&buffer_send[position], domain_name, name_len2);
+	position += name_len2;
+
+	memcpy(&buffer_send[position], &mx_answer, 2); // 拷贝头部
+	position += 2;
+
+	memcpy(&buffer_send[position], &add_name_answers, 2); // 拷贝头部
+	position += 2;
+
+	memcpy(&buffer_send[position], &add_dns_rr_answers1, 10); // 拷贝头部
+	position += 10;
+
+	memcpy(&buffer_send[position], &add_address_answers, add_address_answers_len); // 拷贝头部
+	position += add_address_answers_len;
+
+        send(client_socket, buffer_send, sizeof(buffer_send), 0);
+	}
+
+	//CNAME
+	if(qtype==0x0005){
+
+	memset(&dns_header, 0, sizeof(dns_header));
+	dns_header.id = htons(0x0001); // 设置标识符
+	dns_header.tag = htons(0x8180); // 设置标志位，表示这是一个标准查询
+	dns_header.queryNum = htons(1); // 问题数为1
+	dns_header.answerNum = htons(1);
+	dns_header.addNum = htons(0);
+	dns_header.authorNum = htons(0);
+	int A_data_length = 12; //-------注意A_data_length，用来计算包的长度
+
+
+	//构造Queries--name
+	char* url = *name_str;
+	A_data_length += name_len;
+
+	//构造头部--dns query
+	//printf("Create DNS query...\n");
+	struct DNS_Query dns_query;
+	dns_query.qtype = htons(qtype);
+	dns_query.qclass = htons(0x0001);
+	A_data_length += 4;
+
+	//Answers--构造name
+	unsigned short name_answers = htons(0xc00c);
+	A_data_length += 2;
+
+	  
+	//构造name
+	char cnm_url[] = "cname.123.com";
+	int cnm_url_len = strlen(cnm_url);
+	char cnm_domain_name[cnm_url_len+2];
+	int e = 0;
+	for (int i = 0; i < cnm_url_len+1; i++) {
+	    if (cnm_url[i] == '.') {
+		cnm_domain_name[i-e] = '\x0'+e;
+		e=0;
+	    } else {
+		cnm_domain_name[i+1] = cnm_url[i];
+		e++;
+	    }
+	}
+	cnm_domain_name[cnm_url_len-e+1] = '\x0'+(e-1);
+	cnm_domain_name[cnm_url_len+1] = '\x00';
+	int cnm_name_len = strlen(cnm_domain_name)+1;
+
+	A_data_length += cnm_name_len;
+
+
+	//Answers身体
+	struct DNS_RR dns_rr_answers1;
+	memset(&dns_rr_answers1, 0, sizeof(dns_rr_answers1));
+	dns_rr_answers1.type = htons(qtype); // 设置标识符
+	dns_rr_answers1._class = htons(0x0001); // 设置标识符
+	dns_rr_answers1.ttl = htonl(0x00000064); // 设置标识符
+	//注意data length，是后面的address数据的length
+	dns_rr_answers1.data_len = htons(cnm_name_len); // 设置标识符
+
+	A_data_length += 10;
+
+
+
+	unsigned short packet_length = htons(A_data_length);
+
+	A_data_length += 2;
+
+
+	char buffer_send[A_data_length];
+
+
+	//开始将数据存入buffer
+	//memcpy参数：参数1为你要拷贝到的缓冲区地址，参数2为你要拷贝数据的地址，参数3为数据的长度
+	memset(buffer_send, 0, sizeof(*buffer_send));
+
+	memcpy(&buffer_send, &packet_length, 2); // 拷贝头部
+	int position = 2;
+
+	memcpy(&buffer_send[position], &dns_header, 12); // 拷贝头部
+	position += 12;
+
+	memcpy(&buffer_send[position], url, name_len);
+	position += name_len;
+
+	memcpy(&buffer_send[position], &dns_query, 4);
+	position += 4;
+
+	memcpy(&buffer_send[position], &name_answers, 2); // 拷贝头部
+	position += 2;
+
+	memcpy(&buffer_send[position], &dns_rr_answers1, 10); // 拷贝头部
+	position += 10;
+
+	memcpy(&buffer_send[position], cnm_domain_name, cnm_name_len);
+	position += cnm_name_len;
+
+
+
+        send(client_socket, buffer_send, sizeof(buffer_send), 0);
+	}
+
+	//PTR
+	if(qtype==0x000c){
+
+	memset(&dns_header, 0, sizeof(dns_header));
+	dns_header.id = htons(0x0001); // 设置标识符
+	dns_header.tag = htons(0x8500); // 设置标志位，表示这是一个标准查询
+	dns_header.queryNum = htons(1); // 问题数为1
+	dns_header.answerNum = htons(1);
+	dns_header.addNum = htons(0);
+	dns_header.authorNum = htons(0);
+	int A_data_length = 12; //-------注意A_data_length，用来计算包的长度
+
+
+	//构造Queries--name
+	char* url = *name_str;
+	A_data_length += name_len;
+
+	//构造头部--dns query
+	//printf("Create DNS query...\n");
+	struct DNS_Query dns_query;
+	dns_query.qtype = htons(qtype);
+	dns_query.qclass = htons(0x0001);
+	A_data_length += 4;
+
+	//Answers--构造name
+	unsigned short name_answers = htons(0xc00c);
+	A_data_length += 2;
+
+	  
+	//构造name
+	char cnm_url[] = "ptr.123.com";
+	int cnm_url_len = strlen(cnm_url);
+	char cnm_domain_name[cnm_url_len+2];
+	int e = 0;
+	for (int i = 0; i < cnm_url_len+1; i++) {
+	    if (cnm_url[i] == '.') {
+		cnm_domain_name[i-e] = '\x0'+e;
+		e=0;
+	    } else {
+		cnm_domain_name[i+1] = cnm_url[i];
+		e++;
+	    }
+	}
+	cnm_domain_name[cnm_url_len-e+1] = '\x0'+(e-1);
+	cnm_domain_name[cnm_url_len+1] = '\x00';
+	int cnm_name_len = strlen(cnm_domain_name)+1;
+
+	A_data_length += cnm_name_len;
+
+
+	//Answers身体
+	struct DNS_RR dns_rr_answers1;
+	memset(&dns_rr_answers1, 0, sizeof(dns_rr_answers1));
+	dns_rr_answers1.type = htons(qtype); // 设置标识符
+	dns_rr_answers1._class = htons(0x0001); // 设置标识符
+	dns_rr_answers1.ttl = htonl(0x00000064); // 设置标识符
+	//注意data length，是后面的address数据的length
+	dns_rr_answers1.data_len = htons(cnm_name_len); // 设置标识符
+
+	A_data_length += 10;
+
+
+
+	unsigned short packet_length = htons(A_data_length);
+
+	A_data_length += 2;
+
+
+	char buffer_send[A_data_length];
+
+
+	//开始将数据存入buffer
+	//memcpy参数：参数1为你要拷贝到的缓冲区地址，参数2为你要拷贝数据的地址，参数3为数据的长度
+	memset(buffer_send, 0, sizeof(*buffer_send));
+
+	memcpy(&buffer_send, &packet_length, 2); // 拷贝头部
+	int position = 2;
+
+	memcpy(&buffer_send[position], &dns_header, 12); // 拷贝头部
+	position += 12;
+
+	memcpy(&buffer_send[position], url, name_len);
+	position += name_len;
+
+	memcpy(&buffer_send[position], &dns_query, 4);
+	position += 4;
+
+	memcpy(&buffer_send[position], &name_answers, 2); // 拷贝头部
+	position += 2;
+
+	memcpy(&buffer_send[position], &dns_rr_answers1, 10); // 拷贝头部
+	position += 10;
+
+	memcpy(&buffer_send[position], cnm_domain_name, cnm_name_len);
+	position += cnm_name_len;
+
+
+
+        send(client_socket, buffer_send, sizeof(buffer_send), 0);
+	}
     }
 
     return 0;

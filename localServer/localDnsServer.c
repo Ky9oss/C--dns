@@ -17,14 +17,17 @@
 char buffer_receive[BUF_SIZE];
 char buffer_receive1[BUF_SIZE];
 char buffer_receive2[BUF_SIZE];
-char buffer_receive3[BUF_SIZE];
+char buffer_receive3[10000];
 char buffer_tcp_receive[BUF_SIZE];
 int my_receiveUDP();
 struct in_addr addr;
 char ip_str[64];
 clock_t start_time, end_time;
 double cpu_time_used;
-
+int flag1 = 0;
+int flag2 = 0;
+int flag3 = 0;
+int sockfd, optval;
 
 
 
@@ -45,6 +48,12 @@ int my_receiveUDP(){
 		perror("socket() failed\n");
 		exit(EXIT_FAILURE);
 	};
+	// 设置SO_REUSEADDR选项
+	optval = 1;
+	if (setsockopt(socket_udp, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+		perror("setsockopt");
+		exit(EXIT_FAILURE);
+	}
 
 	struct sockaddr_in *recv_addr = malloc(sizeof(struct sockaddr_in));
 	memset(recv_addr, 0, sizeof(*recv_addr));//初始化结构体中的数据
@@ -60,7 +69,7 @@ int my_receiveUDP(){
 	struct sockaddr_in send_addr;
 	memset(&send_addr, 0, sizeof(send_addr));//初始化结构体中的数据
 	send_addr.sin_family = AF_INET; 
-	send_addr.sin_port = htons(12345); 
+	send_addr.sin_port = htons(12355); 
 	send_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); 
 
 	//构造tcp socket
@@ -70,6 +79,12 @@ int my_receiveUDP(){
 		exit(EXIT_FAILURE);
 	}
 
+	// 设置SO_REUSEADDR选项
+	optval = 1;
+	if (setsockopt(socket_tcp, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+		perror("setsockopt");
+		exit(EXIT_FAILURE);
+	}
 	recv_addr->sin_family = AF_INET; 
 	recv_addr->sin_port = htons(12348); //htons 转换为网络字节序（大端序）
 	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
@@ -85,6 +100,12 @@ int my_receiveUDP(){
 		perror("socket() failed\n");
 		exit(EXIT_FAILURE);
 	}
+	// 设置SO_REUSEADDR选项
+	optval = 1;
+	if (setsockopt(socket_tcp2, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+		perror("setsockopt");
+		exit(EXIT_FAILURE);
+	}
 	recv_addr->sin_family = AF_INET; 
 	recv_addr->sin_port = htons(12346); //htons 转换为网络字节序（大端序）
 	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
@@ -98,6 +119,12 @@ int my_receiveUDP(){
 	int socket_tcp3;
 	if((socket_tcp3 = socket(AF_INET, SOCK_STREAM, 0)) == -1){
 		perror("socket() failed\n");
+		exit(EXIT_FAILURE);
+	}
+	// 设置SO_REUSEADDR选项
+	optval = 1;
+	if (setsockopt(socket_tcp3, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+		perror("setsockopt");
 		exit(EXIT_FAILURE);
 	}
 	recv_addr->sin_family = AF_INET; 
@@ -218,16 +245,20 @@ int my_receiveUDP(){
 	position += 2;
 
 
-
 	struct hostent *server;
 	struct sockaddr_in serv_addr;
 	memset(&serv_addr, 0, sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(53);
 	serv_addr.sin_addr.s_addr = inet_addr("127.2.2.1"); 
-	if (connect(socket_tcp, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-		perror("ERROR connecting\n");
+	if(flag1==0){
+
+		if (connect(socket_tcp, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+			perror("ERROR connecting\n");
+		}
+		flag1++;
 	}
+
 	send(socket_tcp, buffer_send, sizeof(buffer_send), 0);
 
 
@@ -327,15 +358,19 @@ int my_receiveUDP(){
 	printf("------------------------------\n");
 
 
-
 	struct hostent *server2;
 	struct sockaddr_in serv_addr2;
 	memset(&serv_addr2, 0, sizeof(serv_addr2));
 	serv_addr2.sin_family = AF_INET;
 	serv_addr2.sin_port = htons(53);
 	serv_addr2.sin_addr.s_addr = inet_addr(str_ip1); 
-	if (connect(socket_tcp2, (struct sockaddr *) &serv_addr2, sizeof(serv_addr2)) < 0) {
-		perror("ERROR connecting\n");
+
+	if(flag2==0){
+		if (connect(socket_tcp2, (struct sockaddr *) &serv_addr2, sizeof(serv_addr2)) < 0) {
+			perror("ERROR connecting\n");
+		}
+		flag2++;
+
 	}
 
 	// 记录开始时间
@@ -438,15 +473,18 @@ int my_receiveUDP(){
 	printf("\n\n\n------------------------------\n");
 	printf("Send to 2nd DNS Server...\n");
 	printf("------------------------------\n\n");
-
 	struct hostent *server3;
 	struct sockaddr_in serv_addr3;
 	memset(&serv_addr3, 0, sizeof(serv_addr3));
 	serv_addr3.sin_family = AF_INET;
 	serv_addr3.sin_port = htons(53);
 	serv_addr3.sin_addr.s_addr = inet_addr(str_ip); 
-	if (connect(socket_tcp3, (struct sockaddr *) &serv_addr3, sizeof(serv_addr3)) < 0) {
-		perror("ERROR connecting\n");
+
+	if(flag3==0){
+		if (connect(socket_tcp3, (struct sockaddr *) &serv_addr3, sizeof(serv_addr3)) < 0) {
+			perror("ERROR connecting\n");
+		}
+		flag3++;
 	}
 	send(socket_tcp3, buffer_send, sizeof(buffer_send), 0);
 
