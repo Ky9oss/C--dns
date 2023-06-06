@@ -51,13 +51,13 @@ int main() {
     }
 
     printf("Listening on port %d...\n", 53);
-
-    while (1) {
         // 接受新的客户端连接请求
         if ((client_socket = accept(listening_socket, (struct sockaddr *)&client_address, (socklen_t*)&addrlen)) < 0) {
             perror("Accept failed");
             exit(EXIT_FAILURE);
         }
+
+    while (1) {
 
         printf("New client connected.\n");
 	printf("\n\n\n\nReceived from %s:%d\n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port)); //inet_ntoa：地址转成xxx.xxx.xxx.xxx格式 //ntohs：转小端序
@@ -189,9 +189,6 @@ int main() {
 
         send(client_socket, buffer_send, sizeof(buffer_send), 0);
 
-        // 关闭连接
-        close(client_socket);
-        printf("Client disconnected.\n");
 	
     }
 

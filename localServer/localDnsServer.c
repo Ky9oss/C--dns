@@ -63,6 +63,51 @@ int my_receiveUDP(){
 	send_addr.sin_port = htons(12345); 
 	send_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); 
 
+	//构造tcp socket
+	int socket_tcp;
+	if((socket_tcp = socket(AF_INET, SOCK_STREAM, 0)) == -1){
+		perror("socket() failed\n");
+		exit(EXIT_FAILURE);
+	}
+
+	recv_addr->sin_family = AF_INET; 
+	recv_addr->sin_port = htons(12348); //htons 转换为网络字节序（大端序）
+	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
+	addrlen = sizeof(*recv_addr);
+	if (bind(socket_tcp, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
+		perror("1 bind() failed\n");
+		exit(EXIT_FAILURE);
+	};
+
+	//构造tcp socket
+	int socket_tcp2;
+	if((socket_tcp2 = socket(AF_INET, SOCK_STREAM, 0)) == -1){
+		perror("socket() failed\n");
+		exit(EXIT_FAILURE);
+	}
+	recv_addr->sin_family = AF_INET; 
+	recv_addr->sin_port = htons(12346); //htons 转换为网络字节序（大端序）
+	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
+	addrlen = sizeof(*recv_addr);
+	if (bind(socket_tcp2, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
+		perror("2 bind() failed\n");
+		exit(EXIT_FAILURE);
+	};
+
+	//构造tcp socket
+	int socket_tcp3;
+	if((socket_tcp3 = socket(AF_INET, SOCK_STREAM, 0)) == -1){
+		perror("socket() failed\n");
+		exit(EXIT_FAILURE);
+	}
+	recv_addr->sin_family = AF_INET; 
+	recv_addr->sin_port = htons(12347); //htons 转换为网络字节序（大端序）
+	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
+	addrlen = sizeof(*recv_addr);
+	if (bind(socket_tcp3, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
+		perror("3 bind() failed\n");
+		exit(EXIT_FAILURE);
+	};
 	while (1) {
 	
 	//接收数据！
@@ -173,21 +218,6 @@ int my_receiveUDP(){
 	position += 2;
 
 
-	//构造tcp socket
-	int socket_tcp;
-	if((socket_tcp = socket(AF_INET, SOCK_STREAM, 0)) == -1){
-		perror("socket() failed\n");
-		exit(EXIT_FAILURE);
-	}
-
-	recv_addr->sin_family = AF_INET; 
-	recv_addr->sin_port = htons(12345); //htons 转换为网络字节序（大端序）
-	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
-	socklen_t addrlen = sizeof(*recv_addr);
-	if (bind(socket_tcp, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
-		perror("bind() failed\n");
-		exit(EXIT_FAILURE);
-	};
 
 	struct hostent *server;
 	struct sockaddr_in serv_addr;
@@ -290,7 +320,6 @@ int my_receiveUDP(){
 	printf("Data Len: %04x\n", data_len1);
 
 	// 关闭连接
-	close(socket_tcp);
 
 
 	printf("\n\n\n\n------------------------------\n");
@@ -298,20 +327,6 @@ int my_receiveUDP(){
 	printf("------------------------------\n");
 
 
-	//构造tcp socket
-	int socket_tcp2;
-	if((socket_tcp2 = socket(AF_INET, SOCK_STREAM, 0)) == -1){
-		perror("socket() failed\n");
-		exit(EXIT_FAILURE);
-	}
-	recv_addr->sin_family = AF_INET; 
-	recv_addr->sin_port = htons(12345); //htons 转换为网络字节序（大端序）
-	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
-	addrlen = sizeof(*recv_addr);
-	if (bind(socket_tcp, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
-		perror("bind() failed\n");
-		exit(EXIT_FAILURE);
-	};
 
 	struct hostent *server2;
 	struct sockaddr_in serv_addr2;
@@ -416,7 +431,6 @@ int my_receiveUDP(){
 	printf("Data Len: %04x\n", data_len2);
 
 	// 关闭连接
-	close(socket_tcp2);
 
 
 
@@ -424,20 +438,6 @@ int my_receiveUDP(){
 	printf("\n\n\n------------------------------\n");
 	printf("Send to 2nd DNS Server...\n");
 	printf("------------------------------\n\n");
-	//构造tcp socket
-	int socket_tcp3;
-	if((socket_tcp3 = socket(AF_INET, SOCK_STREAM, 0)) == -1){
-		perror("socket() failed\n");
-		exit(EXIT_FAILURE);
-	}
-	recv_addr->sin_family = AF_INET; 
-	recv_addr->sin_port = htons(12345); //htons 转换为网络字节序（大端序）
-	recv_addr->sin_addr.s_addr = inet_addr("127.1.1.1"); 
-	addrlen = sizeof(*recv_addr);
-	if (bind(socket_tcp, (struct sockaddr*)recv_addr, sizeof(*recv_addr)) == -1) {
-		perror("bind() failed\n");
-		exit(EXIT_FAILURE);
-	};
 
 	struct hostent *server3;
 	struct sockaddr_in serv_addr3;
@@ -458,7 +458,6 @@ int my_receiveUDP(){
 	memcpy(address_received3, &buffer_receive3[2], data_length3);
 	printf("Received %d bytes: %s\n", data_length3, address_received3);
 	// 关闭连接
-	close(socket_tcp3);
 
 
 
